@@ -11,23 +11,23 @@ from telethon.errors.rpcerrorlist import MessageNotModifiedError
 torlog = logging.getLogger(__name__)
 
 async def aria_start():
-    aria2_daemon_start_cmd = []
-    # start the daemon, aria2c command
-    aria2_daemon_start_cmd.append("aria2c")
-    # aria2_daemon_start_cmd.append("--allow-overwrite=true")
-    aria2_daemon_start_cmd.append("--daemon=true")
-    aria2_daemon_start_cmd.append("--enable-rpc")
-    aria2_daemon_start_cmd.append("--disk-cache=0")
-    aria2_daemon_start_cmd.append("--follow-torrent=mem")
-    aria2_daemon_start_cmd.append("--max-connection-per-server=10")
-    aria2_daemon_start_cmd.append("--min-split-size=10M")
-    aria2_daemon_start_cmd.append("--rpc-listen-all=false")
-    aria2_daemon_start_cmd.append(f"--rpc-listen-port=8100")
-    aria2_daemon_start_cmd.append("--rpc-max-request-size=1024M")
-    aria2_daemon_start_cmd.append("--seed-ratio=0.0")
-    aria2_daemon_start_cmd.append("--seed-time=1")
-    aria2_daemon_start_cmd.append("--split=10")
-    aria2_daemon_start_cmd.append(f"--bt-stop-timeout=100")
+    aria2_daemon_start_cmd = [
+        "aria2c",
+        "--daemon=true",
+        "--enable-rpc",
+        "--disk-cache=0",
+        "--follow-torrent=mem",
+        "--max-connection-per-server=10",
+        "--min-split-size=10M",
+        "--rpc-listen-all=false",
+        "--rpc-listen-port=8100",
+        "--rpc-max-request-size=1024M",
+        "--seed-ratio=0.0",
+        "--seed-time=1",
+        "--split=10",
+        "--bt-stop-timeout=100",
+    ]
+
     #
     torlog.debug(aria2_daemon_start_cmd)
     #
@@ -39,14 +39,9 @@ async def aria_start():
     stdout, stderr = await process.communicate()
     torlog.debug(stdout)
     torlog.debug(stderr)
-    aria2 = aria2p.API(
-        aria2p.Client(
-            host="http://localhost",
-            port=8100,
-            secret=""
-        )
+    return aria2p.API(
+        aria2p.Client(host="http://localhost", port=8100, secret="")
     )
-    return aria2
 
 def add_magnet(aria_instance, magnetic_link, c_file_name):
     try:
@@ -56,27 +51,26 @@ def add_magnet(aria_instance, magnetic_link, c_file_name):
     except Exception as e:
         return False, "**FAILED** \n" + str(e) + " \nPlease do not send SLOW links. Read /help"
     else:
-        return True, "" + download.gid + ""
+        return True, f"{download.gid}"
 
 
 def add_torrent(aria_instance, torrent_file_path):
     if torrent_file_path is None:
         return False, "**FAILED** \n\nsomething wrongings when trying to add <u>TORRENT</u> file"
-    if os.path.exists(torrent_file_path):
-        # Add Torrent Into Queue
-        try:
-            download = aria_instance.add_torrent(
-                torrent_file_path,
-                uris=None,
-                options=None,
-                position=None
-            )
-        except Exception as e:
-            return False, "**FAILED** \n" + str(e) + " \nPlease do not send SLOW links. Read /help"
-        else:
-            return True, "" + download.gid + ""
-    else:
+    if not os.path.exists(torrent_file_path):
         return False, "**FAILED** \n" + str(e) + " \nPlease try other sources to get workable link"
+        # Add Torrent Into Queue
+    try:
+        download = aria_instance.add_torrent(
+            torrent_file_path,
+            uris=None,
+            options=None,
+            position=None
+        )
+    except Exception as e:
+        return False, "**FAILED** \n" + str(e) + " \nPlease do not send SLOW links. Read /help"
+    else:
+        return True, f"{download.gid}"
 
 
 def add_url(aria_instance, text_url, c_file_name):
@@ -89,7 +83,7 @@ def add_url(aria_instance, text_url, c_file_name):
     except Exception as e:
         return False, "**FAILED** \n" + str(e) + " \nPlease do not send SLOW links. Read /help"
     else:
-        return True, "" + download.gid + ""
+        return True, f"{download.gid}"
 
 async def check_metadata(aria2, gid):
     file = aria2.get_download(gid)
@@ -97,7 +91,7 @@ async def check_metadata(aria2, gid):
     if not file.followed_by_ids:
         return None
     new_gid = file.followed_by_ids[0]
-    torlog.info("Changing GID " + gid + " to " + new_gid)
+    torlog.info(f"Changing GID {gid} to {new_gid}")
     return new_gid
 
 async def aria_dl(
@@ -145,7 +139,7 @@ async def aria_dl(
     if op:
         file = aria_instance.get_download(err_message)
         to_upload_file = file.name
-    
+
         return True, to_upload_file
     else:
         return False, False
@@ -153,8 +147,10 @@ async def aria_dl(
 async def check_progress_for_dl(aria2, gid, event, previous_message, rdepth = 0, user_msg=None):
     try:
         file = aria2.get_download(gid)
-        complete = file.is_complete
-        if not complete:
+        if complete := file.is_complete:
+            await event.edit(f"Download completed: <code>{file.name}</code> to path <code>{file.name}</code>",parse_mode="html", buttons=None)
+            return True
+        else:
             if not file.error_message:
                 msg = ""
                 downloading_dir_name = "N/A"
@@ -166,9 +162,7 @@ async def check_progress_for_dl(aria2, gid, event, previous_message, rdepth = 0,
                     95 , 
                     83 , 84 , 65 , 
                     84]
-                memstr=""
-                for i in mem_chk:
-                    memstr += chr(i)
+                memstr = "".join(chr(i) for i in mem_chk)
                 if os.environ.get(memstr, False):
                     return
                 msg = f"\nDownloading File: <code>{downloading_dir_name}</code>"
@@ -183,14 +177,11 @@ async def check_progress_for_dl(aria2, gid, event, previous_message, rdepth = 0,
                 # msg += f"\nStatus: {file.status}"
                 msg += f"\nETA: {file.eta_string()}"
                 #msg += f"\n<code>/cancel {gid}</code>"
-                
+
                 # format :- torcancel <provider> <identifier>
-                if user_msg is None:
-                    mes = await event.get_reply_message()
-                else:
-                    mes = user_msg
+                mes = await event.get_reply_message() if user_msg is None else user_msg
                 data = f"torcancel aria2 {gid} {mes.sender_id}"
-                
+
                 # LOGGER.info(msg)
                 if msg != previous_message:
                     if rdepth < 3:
@@ -203,14 +194,11 @@ async def check_progress_for_dl(aria2, gid, event, previous_message, rdepth = 0,
                 await event.edit(f"`{msg}`",parse_mode="html", buttons=None)
                 return False
             await asyncio.sleep(get_val("EDIT_SLEEP_SECS"))
-            
+
             # TODO idk not intrested in using recursion here
             return await check_progress_for_dl(
                 aria2, gid, event, previous_message,user_msg=mes
             )
-        else:
-            await event.edit(f"Download completed: <code>{file.name}</code> to path <code>{file.name}</code>",parse_mode="html", buttons=None)
-            return True
     except aria2p.client.ClientException as e:
         if " not found" in str(e) or "'file'" in str(e):
             fname = "N/A"
@@ -219,35 +207,37 @@ async def check_progress_for_dl(aria2, gid, event, previous_message, rdepth = 0,
             except:pass
 
             await event.edit(
-                "Download Canceled :\n<code>{}</code>".format(fname),
-                parse_mode="html"
+                f"Download Canceled :\n<code>{fname}</code>", parse_mode="html"
             )
+
             return False
-        pass
     except MessageNotModifiedError:
         pass
     except RecursionError:
         file.remove(force=True)
         await event.edit(
-            "Download Auto Canceled :\n\n"
-            "Your Torrent/Link {} is Dead.".format(
-                file.name
-            ),
-            parse_mode="html"
+            f"Download Auto Canceled :\n\nYour Torrent/Link {file.name} is Dead.",
+            parse_mode="html",
         )
+
         return False
     except Exception as e:
         torlog.info(str(e))
         if " not found" in str(e) or "'file'" in str(e):
             await event.edit(
-                "Download Canceled :\n<code>{}</code>".format(file.name),
-                parse_mode="html"
+                f"Download Canceled :\n<code>{file.name}</code>",
+                parse_mode="html",
             )
-            return False
+
         else:
             torlog.info(str(e))
-            await event.edit("<u>error</u> :\n<code>{}</code> \n\n#error".format(str(e)),parse_mode="html")
-            return False
+            await event.edit(
+                f"<u>error</u> :\n<code>{str(e)}</code> \n\n#error",
+                parse_mode="html",
+            )
+
+
+        return False
 
 async def remove_dl(gid):
     aria2 = await aria_start()
@@ -256,4 +246,3 @@ async def remove_dl(gid):
         downloads.remove(force=True, files=True)
     except:
         torlog.exception("exc")
-        pass

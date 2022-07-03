@@ -14,11 +14,10 @@ async def progress(current,total,message,file_name,start,time_out,cancel_msg=Non
     now = time.time()
     diff = now - start
     if round(diff % time_out) == 0 or current == total:
-        if cancel_msg is not None:
-            # dirty alt. was not able to find something to stop upload
-            # todo inspect with "StopAsyncIteration"
-            if updb.get_cancel_status(cancel_msg.chat_id,cancel_msg.id):
-                raise Exception("cancel the upload")
+        if cancel_msg is not None and updb.get_cancel_status(
+            cancel_msg.chat_id, cancel_msg.id
+        ):
+            raise Exception("cancel the upload")
 
         # if round(current / total * 100, 0) % 5 == 0:
         percentage = current * 100 / total
@@ -33,10 +32,22 @@ async def progress(current,total,message,file_name,start,time_out,cancel_msg=Non
 
 
         progress = "[{0}{1}] \nP: {2}%\n".format(
-            ''.join([get_val("COMPLETED_STR") for i in range(math.floor(percentage / 5))]),
-            ''.join([get_val("REMAINING_STR") for i in range(20 - math.floor(percentage / 5))]),
-            round(percentage, 2))
-        
+            ''.join(
+                [
+                    get_val("COMPLETED_STR")
+                    for _ in range(math.floor(percentage / 5))
+                ]
+            ),
+            ''.join(
+                [
+                    get_val("REMAINING_STR")
+                    for _ in range(20 - math.floor(percentage / 5))
+                ]
+            ),
+            round(percentage, 2),
+        )
+
+
         tmp = progress + "{0} of {1}\nSpeed: {2}/s\nETA: {3}\n".format(
             human_readable_bytes(current),
             human_readable_bytes(total),
@@ -46,23 +57,10 @@ async def progress(current,total,message,file_name,start,time_out,cancel_msg=Non
         )
         try:
             if not message.photo:
-                await message.edit(
-                    text="{}\n {}".format(
-                        file_name,
-                        tmp
-                    )
-                )
+                await message.edit(text=f"{file_name}\n {tmp}")
             else:
-                await message.edit(
-                    caption="{}\n {}".format(
-                        file_name,
-                        tmp
-                    )
-                )
+                await message.edit(caption=f"{file_name}\n {tmp}")
         except Exception as e:
             logging.error(e)
-            pass
-        return
-    else:
-        return
+    return
 

@@ -10,19 +10,18 @@ def human_readable_bytes(value, digits= 2, delim= "", postfix=""):
         return None
     chosen_unit = "B"
     for unit in ("KiB", "MiB", "GiB", "TiB"):
-        if value > 1000:
-            value /= 1024
-            chosen_unit = unit
-        else:
+        if value <= 1000:
             break
-    return f"{value:.{digits}f}" + delim + chosen_unit + postfix
+        value /= 1024
+        chosen_unit = unit
+    return f"{value:.{digits}f}{delim}{chosen_unit}{postfix}"
 
 def human_readable_timedelta(seconds, precision = 0):
     """Return a human-readable time delta as a string.
     """
     pieces = []
     value = timedelta(seconds=seconds)
-    
+
 
     if value.days:
         pieces.append(f"{value.days}d")
